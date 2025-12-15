@@ -7,13 +7,11 @@ source .env
 PROJECT_ID=$WORKLOAD_PROJECT
 IMAGE_PROJECT="vm-system"
 BOOT_DISK_SIZE="64GB"
-NETWORK="default"                   
-SUBNET="default"                    
 
 # --- Input Validation ---
-if [ "$#" -ne 2 ]; then
+if [ "$#" -ne 3 ]; then
     echo "Usage: $0 <INSTANCE_NAME> <MACHINE_TYPE> <IMAGE TYPE>"
-    echo "Example: $0 my-test-vm e2-standard-4"
+    echo "Example: $0 test-vm n3-standard-2-gdc rocky-8-v20250210-gdch"
     exit 1
 fi
 
@@ -34,7 +32,6 @@ gdcloud compute instances create "$INSTANCE_NAME" \
     --image-project "$IMAGE_PROJECT" \
     --machine-type "$MACHINE_TYPE" \
     --boot-disk-size "$BOOT_DISK_SIZE" \
-    --network-interface subnet="$SUBNET",network="$NETWORK"
 
 # --- Status Check ---
 if [ $? -eq 0 ]; then
