@@ -1,4 +1,4 @@
-## Lab 1 - Deploy Elasticsearch
+## Lab 4 - Deploy Virtual Machine
 
 
 1. Run Login.
@@ -12,3 +12,5 @@
 example: ./create-vm.sh test-vm n3-standard-2-gdc rocky-8-v20250210-gdch
 
 #Pick the image and the machine types from the available list.
+
+5. SSH into vm from GDC Console
