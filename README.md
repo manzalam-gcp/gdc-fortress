@@ -107,3 +107,4 @@ These hands-on labs will guide you through deploying and managing workloads on G
 * [Lab 1 - Deploy HTML Server](./LAB-1.md)
 * [Lab 2 - Deploy API Server](./LAB-2.md)
 * [Lab 3 - Deploy Elasticsearch](./LAB-3.md)
+* [Lab 4 - Deploy VM](./LAB-4.md)
