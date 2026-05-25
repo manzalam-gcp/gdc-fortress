@@ -44,26 +44,27 @@ RUN cd /root/.ollama/models/blobs && \
     echo "Splitting $BIG_FILE into chunks..." && \
     echo "$BIG_FILE" > big_file_name.txt && \
     split -b 300M "$BIG_FILE" chunk_ && \
-    rm "$BIG_FILE"
+    rm "$BIG_FILE" && \
+    touch dummy_ab dummy_ac dummy_ad dummy_ae dummy_af
 
 # --- Create smaller layers by copying chunks one by one ---
 FROM ollama/ollama:latest AS layer1
 COPY --from=builder /root/.ollama/models/blobs/chunk_aa /root/.ollama/models/blobs/chunk_aa
 
 FROM layer1 AS layer2
-COPY --from=builder /root/.ollama/models/blobs/chunk_ab* /root/.ollama/models/blobs/
+COPY --from=builder /root/.ollama/models/blobs/chunk_ab* /root/.ollama/models/blobs/dummy_ab /root/.ollama/models/blobs/
 
 FROM layer2 AS layer3
-COPY --from=builder /root/.ollama/models/blobs/chunk_ac* /root/.ollama/models/blobs/
+COPY --from=builder /root/.ollama/models/blobs/chunk_ac* /root/.ollama/models/blobs/dummy_ac /root/.ollama/models/blobs/
 
 FROM layer3 AS layer4
-COPY --from=builder /root/.ollama/models/blobs/chunk_ad* /root/.ollama/models/blobs/
+COPY --from=builder /root/.ollama/models/blobs/chunk_ad* /root/.ollama/models/blobs/dummy_ad /root/.ollama/models/blobs/
 
 FROM layer4 AS layer5
-COPY --from=builder /root/.ollama/models/blobs/chunk_ae* /root/.ollama/models/blobs/
+COPY --from=builder /root/.ollama/models/blobs/chunk_ae* /root/.ollama/models/blobs/dummy_ae /root/.ollama/models/blobs/
 
 FROM layer5 AS layer6
-COPY --from=builder /root/.ollama/models/blobs/chunk_af* /root/.ollama/models/blobs/
+COPY --from=builder /root/.ollama/models/blobs/chunk_af* /root/.ollama/models/blobs/dummy_af /root/.ollama/models/blobs/
 
 FROM layer6 AS final
 # Copy the rest of the metadata and small files
@@ -80,6 +81,7 @@ HEALTHCHECK --interval=20s --timeout=10s --start-period=60s --retries=5 \
 # Reassemble the chunks at runtime before starting the server
 CMD echo "Reassembling model weights..." && \
     cd /root/.ollama/models/blobs && \
+    rm -f dummy_* && \
     BIG_FILE=$(cat big_file_name.txt) && \
     cat chunk_* > "$BIG_FILE" && \
     rm chunk_* big_file_name.txt && \
