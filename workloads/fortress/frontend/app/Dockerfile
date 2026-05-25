@@ -7,6 +7,10 @@ RUN npm install
 
 COPY . .
 
+# Bake the API URL into the Vite bundle at build time
+ARG VITE_API_URL=http://10.200.32.58:8000
+ENV VITE_API_URL=$VITE_API_URL
+
 # Build the production bundle
 RUN npm run build
 
