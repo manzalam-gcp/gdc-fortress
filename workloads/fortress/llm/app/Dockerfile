@@ -46,9 +46,10 @@ RUN cd /root/.ollama/models/blobs && \
     BIG_FILE=$(ls -S | head -n 1) && \
     echo "Splitting $BIG_FILE into chunks..." && \
     echo "$BIG_FILE" > big_file_name.txt && \
-    split -b 300M "$BIG_FILE" chunk_ && \
+    split -b 100M "$BIG_FILE" chunk_ && \
     rm "$BIG_FILE" && \
-    touch dummy_ab dummy_ac dummy_ad dummy_ae dummy_af
+    touch dummy_ab dummy_ac dummy_ad dummy_ae dummy_af \
+    dummy_ag dummy_ah dummy_ai dummy_aj dummy_ak
 
 # --- Stage 3: Rebuild with a lightweight Ubuntu base ---
 FROM ubuntu:22.04 AS layer1
@@ -71,7 +72,22 @@ COPY --from=builder /root/.ollama/models/blobs/chunk_ae* /root/.ollama/models/bl
 FROM layer5 AS layer6
 COPY --from=builder /root/.ollama/models/blobs/chunk_af* /root/.ollama/models/blobs/dummy_af /root/.ollama/models/blobs/
 
-FROM layer6 AS final
+FROM layer6 AS layer7
+COPY --from=builder /root/.ollama/models/blobs/chunk_ag* /root/.ollama/models/blobs/dummy_ag /root/.ollama/models/blobs/
+
+FROM layer7 AS layer8
+COPY --from=builder /root/.ollama/models/blobs/chunk_ah* /root/.ollama/models/blobs/dummy_ah /root/.ollama/models/blobs/
+
+FROM layer8 AS layer9
+COPY --from=builder /root/.ollama/models/blobs/chunk_ai* /root/.ollama/models/blobs/dummy_ai /root/.ollama/models/blobs/
+
+FROM layer9 AS layer10
+COPY --from=builder /root/.ollama/models/blobs/chunk_aj* /root/.ollama/models/blobs/dummy_aj /root/.ollama/models/blobs/
+
+FROM layer10 AS layer11
+COPY --from=builder /root/.ollama/models/blobs/chunk_ak* /root/.ollama/models/blobs/dummy_ak /root/.ollama/models/blobs/
+
+FROM layer11 AS final
 COPY --from=builder /root/.ollama/models/manifests /root/.ollama/models/manifests/
 COPY --from=builder /root/.ollama/models/blobs/sha256* /root/.ollama/models/blobs/
 COPY --from=builder /root/.ollama/models/blobs/big_file_name.txt /root/.ollama/models/blobs/
