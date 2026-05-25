@@ -20,57 +20,68 @@
 # =============================================================================
 
 # ---- Stage 1: Pull base Ollama image -----------------------------------------
-FROM ollama/ollama:latest AS model-builder
+# =============================================================================
+# Dockerfile.llm — Google Fortress Offline LLM (Layer-Split Workaround)
+# =============================================================================
+# Harbor often throws 500 timeouts on layers > 1GB. This Dockerfile pulls the 
+# model, splits the massive weights file into 300MB chunks (forcing Docker to 
+# create smaller layers), and reassembles them at runtime.
 
-# ---- Bake model weights into the image ----------------------------------------
-# We start the Ollama server, wait for it to become ready, then pull the model.
-# The RUN instruction executes fully before the layer is committed, so the
-# weights are frozen into the image layer — no network needed at runtime.
-#
-# Change OLLAMA_MODEL build-arg to swap models (e.g., llava:13b, bakllava:7b).
+FROM ollama/ollama:latest AS builder
+
 ARG OLLAMA_MODEL=moondream
 
-RUN echo "==> Starting Ollama server in background for model pull..." && \
+RUN echo "==> Starting Ollama server to pull model..." && \
     ollama serve & \
     OLLAMA_PID=$! && \
-    # Poll until the server is accepting requests (up to 60s)
-    for i in $(seq 1 60); do \
-    if curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; then \
-    echo "==> Ollama is ready (attempt $i)"; break; \
-    fi; \
-    echo "==> Waiting for Ollama... ($i/60)"; \
-    sleep 1; \
-    done && \
-    # Pull the target VLM model (weights land in /root/.ollama/models/)
-    echo "==> Pulling model: ${OLLAMA_MODEL}" && \
+    sleep 5 && \
     ollama pull "${OLLAMA_MODEL}" && \
-    # Verify the model is registered
-    echo "==> Verifying model listing:" && \
-    ollama list && \
-    # Cleanly stop Ollama so no stale PID files are committed
-    kill "$OLLAMA_PID" && wait "$OLLAMA_PID" 2>/dev/null || true && \
-    echo "==> Model bake complete."
+    kill "$OLLAMA_PID" && wait "$OLLAMA_PID" 2>/dev/null || true
 
-# ---- Stage 2: Final runtime image ---------------------------------------------
-# We copy the baked model directory from the builder stage into a fresh Ollama
-# base image.  This keeps the final layer structure clean.
-FROM ollama/ollama:latest
+# Find the largest blob (the weights), split it into 300MB chunks, and save its name
+RUN cd /root/.ollama/models/blobs && \
+    BIG_FILE=$(ls -S | head -n 1) && \
+    echo "Splitting $BIG_FILE into chunks..." && \
+    echo "$BIG_FILE" > big_file_name.txt && \
+    split -b 300M "$BIG_FILE" chunk_ && \
+    rm "$BIG_FILE"
 
-# Copy the pre-downloaded model weights from the builder
-COPY --from=model-builder /root/.ollama /root/.ollama
+# --- Create smaller layers by copying chunks one by one ---
+FROM ollama/ollama:latest AS layer1
+COPY --from=builder /root/.ollama/models/blobs/chunk_aa /root/.ollama/models/blobs/chunk_aa
 
-# Persist the model name so the API knows what to request
+FROM layer1 AS layer2
+COPY --from=builder /root/.ollama/models/blobs/chunk_ab* /root/.ollama/models/blobs/
+
+FROM layer2 AS layer3
+COPY --from=builder /root/.ollama/models/blobs/chunk_ac* /root/.ollama/models/blobs/
+
+FROM layer3 AS layer4
+COPY --from=builder /root/.ollama/models/blobs/chunk_ad* /root/.ollama/models/blobs/
+
+FROM layer4 AS layer5
+COPY --from=builder /root/.ollama/models/blobs/chunk_ae* /root/.ollama/models/blobs/
+
+FROM layer5 AS layer6
+COPY --from=builder /root/.ollama/models/blobs/chunk_af* /root/.ollama/models/blobs/
+
+FROM layer6 AS final
+# Copy the rest of the metadata and small files
+COPY --from=builder /root/.ollama/models/manifests /root/.ollama/models/manifests/
+COPY --from=builder /root/.ollama/models/blobs/sha256* /root/.ollama/models/blobs/
+COPY --from=builder /root/.ollama/models/blobs/big_file_name.txt /root/.ollama/models/blobs/
+
 ENV OLLAMA_MODEL=moondream
-
-# ---- Health / metadata --------------------------------------------------------
-# Default Ollama port — matched by k8s/llm-deployment.yaml Service
 EXPOSE 11434
 
-# Liveness check: Ollama's /api/tags lists loaded models (fast query)
-HEALTHCHECK --interval=20s --timeout=10s --start-period=30s --retries=5 \
+HEALTHCHECK --interval=20s --timeout=10s --start-period=60s --retries=5 \
     CMD curl -sf http://localhost:11434/api/tags || exit 1
 
-# ---- Entrypoint ---------------------------------------------------------------
-# ollama serve starts the inference server; because weights are already on disk
-# in /root/.ollama/models/, no download occurs — 100% offline startup.
-CMD ["serve"]
+# Reassemble the chunks at runtime before starting the server
+CMD echo "Reassembling model weights..." && \
+    cd /root/.ollama/models/blobs && \
+    BIG_FILE=$(cat big_file_name.txt) && \
+    cat chunk_* > "$BIG_FILE" && \
+    rm chunk_* big_file_name.txt && \
+    echo "Starting Ollama..." && \
+    ollama serve
