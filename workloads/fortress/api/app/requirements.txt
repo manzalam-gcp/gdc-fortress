@@ -1,0 +1,33 @@
+# requirements.txt — Google Fortress API
+# ----------------------------------------
+# All packages are pinned to exact versions so that `pip download` on the
+# internet-connected build host fetches the exact same wheels that will be
+# installed offline by Dockerfile.api.
+#
+# Air-gap note: Dockerfile.api installs from a pre-downloaded local wheel
+# directory (pip_packages/) using:
+#   pip install --no-index --find-links /app/pip_packages -r requirements.txt
+# No PyPI network call is made inside the container.
+
+# Web framework & server
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+
+# Multipart / file upload support for FastAPI
+python-multipart==0.0.9
+
+# Async HTTP client for calling the local Ollama VLM endpoint
+httpx==0.27.0
+
+# Video processing — headless build (no GUI display dependencies)
+opencv-python-headless==4.9.0.80
+
+# Image utilities (JPEG encode helpers)
+Pillow==10.3.0
+
+# Pin numpy to avoid 2.0 compatibility issues with opencv
+numpy<2.0.0
+
+# Async utilities (included with Python 3.11 stdlib — listed for clarity)
+# anyio is pulled in transitively by httpx/starlette; pin to match
+anyio==4.3.0

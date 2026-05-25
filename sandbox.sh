@@ -52,3 +52,11 @@ if [ "$1" == "ssh" ]; then
         --ssh-cmd "gcloud compute ssh --project=$SANDBOX_PROJECT --zone=$SANDBOX_ZONE --tunnel-through-iap" \
         10.200.0.0/16 --dns)
 fi
+
+if [ "$1" == "fortress" ]; then
+    response=$(gcloud compute scp --recurse workloads/fortress $SANDBOX_USER@$SANDBOX_INSTANCE:/home/$SANDBOX_USER/gdc-sandbox/workloads/ \
+        --tunnel-through-iap \
+        --project $SANDBOX_PROJECT \
+        --zone $SANDBOX_ZONE)
+    exit 0
+fi

@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #4285F4;
+  --bg: #0F172A;
+  --card: rgba(30, 41, 59, 0.7);
+  --border: rgba(255, 255, 255, 0.1);
+}
+
+body {
+  background-color: var(--bg);
+  color: #F8FAFC;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+.glass {
+  background: var(--card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #60A5FA 0%, #4285F4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.upload-zone {
+  border: 2px dashed var(--border);
+  transition: all 0.3s ease;
+}
+
+.upload-zone:hover {
+  border-color: var(--primary);
+  background: rgba(66, 133, 244, 0.05);
+}

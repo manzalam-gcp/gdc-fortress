@@ -1,0 +1,26 @@
+
+labels:
+- includeSelectors: true
+  pairs:
+    app-name: fortress-frontend
+
+resources:
+- deployment.yaml
+- service.yaml
+
+configMapGenerator:
+- name: app-configmap-1
+  envs:
+  - app.properties
+
+replacements:
+- source:
+    kind: ConfigMap
+    name: app-configmap-1
+    fieldPath: data.IMAGE
+  targets:
+  - select:
+      kind: Deployment
+      name: fortress-frontend
+    fieldPaths:
+    - spec.template.spec.containers.0.image

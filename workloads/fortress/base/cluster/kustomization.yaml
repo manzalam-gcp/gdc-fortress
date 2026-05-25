@@ -1,0 +1,12 @@
+
+labels:
+- includeSelectors: false
+  pairs:
+    app-name: fortress
+
+resources:
+- network.yaml
+- pvc.yaml
+- ../../api/base/cluster
+- ../../llm/base/cluster
+- ../../frontend/base/cluster

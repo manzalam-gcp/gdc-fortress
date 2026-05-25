@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fortress-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fortress-frontend
+  template:
+    metadata:
+      labels:
+        app: fortress-frontend
+    spec:
+      imagePullSecrets:
+        - name: harbor-secret
+      containers:
+        - name: frontend
+          image: fortress-frontend
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: VITE_API_URL
+              value: "http://fortress-api:8000"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2"

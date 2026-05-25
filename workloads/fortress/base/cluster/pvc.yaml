@@ -1,0 +1,24 @@
+# k8s/pvc.yaml — Google Fortress Persistent Volume Claim
+# -------------------------------------------------------
+# Shared storage for uploaded videos and temporary frame files.
+# Mounted by the API pod at /app/uploads.
+#
+# Air-gap note: Adjust storageClassName to match what your GDC appliance
+# exposes (e.g., "local-path", "gce-pd", or a CSI driver class).
+# If using a local-path provisioner, bind to a specific node via
+# nodeAffinity in a PersistentVolume and reference that PV here.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fortress-uploads-pvc
+  labels:
+    app.kubernetes.io/part-of: google-fortress
+spec:
+  accessModes:
+    - ReadWriteOnce          # Single-node; scale to ReadWriteMany if NFS available
+  resources:
+    requests:
+      storage: 50Gi          # Tune based on expected video volume
+  # TODO: Replace 'standard' with the GDC appliance storage class name.
+  # Run `kubectl get storageclass` on the GDC cluster to find available classes.
+  storageClassName: standard-rwo

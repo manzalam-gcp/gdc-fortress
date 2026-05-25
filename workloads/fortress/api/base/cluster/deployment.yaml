@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fortress-api
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: fortress-api
+  template:
+    metadata:
+      labels:
+        app: fortress-api
+    spec:
+      imagePullSecrets:
+        - name: harbor-secret
+      containers:
+        - name: api
+          image: fortress-api
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: OLLAMA_BASE_URL
+              value: "http://fortress-llm:11434"
+            - name: OLLAMA_MODEL
+              value: "moondream"
+            - name: FRAME_INTERVAL_SECONDS
+              value: "5"
+            - name: LLM_TIMEOUT_SECONDS
+              value: "300"
+            - name: UPLOAD_DIR
+              value: "/app/uploads"
+            - name: ANALYSIS_PROMPT
+              value: >-
+                You are a security analyst. Carefully examine this video frame
+                and describe any anomalies, unusual objects, suspicious
+                activity, or persons of interest in precise detail.
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "1"
+            limits:
+              memory: "4Gi"
+              cpu: "4"
+          volumeMounts:
+            - name: uploads-storage
+              mountPath: /app/uploads
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: uploads-storage
+          persistentVolumeClaim:
+            claimName: fortress-uploads-pvc
