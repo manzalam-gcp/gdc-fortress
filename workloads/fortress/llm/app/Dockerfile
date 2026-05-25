@@ -21,14 +21,18 @@
 
 # ---- Stage 1: Pull base Ollama image -----------------------------------------
 # =============================================================================
-# Dockerfile.llm — Google Fortress Offline LLM (Layer-Split Workaround)
+# Dockerfile.llm — Google Fortress Offline LLM (CPU-Only + Layer-Split)
 # =============================================================================
-# Harbor often throws 500 timeouts on layers > 1GB. This Dockerfile pulls the 
-# model, splits the massive weights file into 300MB chunks (forcing Docker to 
-# create smaller layers), and reassembles them at runtime.
+# Harbor is rejecting the massive 1.5GB CUDA/ROCm layer from the official 
+# ollama/ollama:latest base image. Since this environment is CPU-only, we can 
+# strip out the GPU libraries by copying just the ollama binary into a fresh 
+# Ubuntu image, and then layering our chunked model on top.
 
+# --- Stage 1: Extract the Ollama binary ---
+FROM ollama/ollama:latest AS ollama-bin
+
+# --- Stage 2: Pull and chunk the model ---
 FROM ollama/ollama:latest AS builder
-
 ARG OLLAMA_MODEL=moondream
 
 RUN echo "==> Starting Ollama server to pull model..." && \
@@ -38,7 +42,6 @@ RUN echo "==> Starting Ollama server to pull model..." && \
     ollama pull "${OLLAMA_MODEL}" && \
     kill "$OLLAMA_PID" && wait "$OLLAMA_PID" 2>/dev/null || true
 
-# Find the largest blob (the weights), split it into 300MB chunks, and save its name
 RUN cd /root/.ollama/models/blobs && \
     BIG_FILE=$(ls -S | head -n 1) && \
     echo "Splitting $BIG_FILE into chunks..." && \
@@ -47,8 +50,10 @@ RUN cd /root/.ollama/models/blobs && \
     rm "$BIG_FILE" && \
     touch dummy_ab dummy_ac dummy_ad dummy_ae dummy_af
 
-# --- Create smaller layers by copying chunks one by one ---
-FROM ollama/ollama:latest AS layer1
+# --- Stage 3: Rebuild with a lightweight Ubuntu base ---
+FROM ubuntu:22.04 AS layer1
+RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=ollama-bin /bin/ollama /bin/ollama
 COPY --from=builder /root/.ollama/models/blobs/chunk_aa /root/.ollama/models/blobs/chunk_aa
 
 FROM layer1 AS layer2
@@ -67,18 +72,17 @@ FROM layer5 AS layer6
 COPY --from=builder /root/.ollama/models/blobs/chunk_af* /root/.ollama/models/blobs/dummy_af /root/.ollama/models/blobs/
 
 FROM layer6 AS final
-# Copy the rest of the metadata and small files
 COPY --from=builder /root/.ollama/models/manifests /root/.ollama/models/manifests/
 COPY --from=builder /root/.ollama/models/blobs/sha256* /root/.ollama/models/blobs/
 COPY --from=builder /root/.ollama/models/blobs/big_file_name.txt /root/.ollama/models/blobs/
 
 ENV OLLAMA_MODEL=moondream
+ENV OLLAMA_HOST=0.0.0.0
 EXPOSE 11434
 
 HEALTHCHECK --interval=20s --timeout=10s --start-period=60s --retries=5 \
     CMD curl -sf http://localhost:11434/api/tags || exit 1
 
-# Reassemble the chunks at runtime before starting the server
 CMD echo "Reassembling model weights..." && \
     cd /root/.ollama/models/blobs && \
     rm -f dummy_* && \
